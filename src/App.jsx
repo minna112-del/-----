@@ -105,11 +105,11 @@ export default function App() {
       setPinInput("");
       setShowSplash(true); 
       
-      // ভিডিওর সময়কাল ৩ সেকেন্ড (3000) করে দেওয়া হলো
+      // ভিডিওর সময়কাল 9 সেকেন্ড (9000) করে দেওয়া হলো
       setTimeout(() => {
         setShowSplash(false);
         setIsUnlocked(true); 
-      }, 3000); 
+      },9000); 
 
     } else { setPinError("ভুল পিন! আবার চেষ্টা করুন"); }
   };
