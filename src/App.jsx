@@ -15,7 +15,10 @@ import { db } from "./firebase";
 // ছবি ও ভিডিও ইমপোর্ট করা হলো
 import hisabImage from './hisab.jpeg';
 import mahsinImg from './MAHSIN.jpeg';
-import jisanImg from './JISAN.jpeg';
+import jisanImg from './RUBEL.jpeg';
+import jisanImg from './MOJAMMEL.jpeg';
+import jisanImg from './SOJIB.jpeg';
+import jisanImg from './ARIF.jpeg';
 import splashVideo from './splash_video.mp4'; 
 
 // ================= CONFIG =================
@@ -24,7 +27,10 @@ const APP_PIN = "7307";
 // ================= MEMBERS =================
 const MEMBERS = [
   { id: "m1", name: "মহসিন" },
-  { id: "m2", name: "জিসান" },
+  { id: "m2", name: "রুবেল" },
+  { id: "m3", name: "মোজাম্মেল" },
+  { id: "m4", name: "সজিব" },
+  { id: "m5", name: "আরিফ" },
 ];
 
 const memberNamesOnly = MEMBERS.map((m) => m.name);
@@ -40,7 +46,7 @@ const formatDateForInput = (ts) => {
 
 // ================= AVATAR COMPONENT =================
 const MemberAvatar = ({ name }) => {
-  let src = name === "মহসিন" ? mahsinImg : jisanImg;
+  let src = name === "মহসিন" ? mahsinImg : rubelImg : mojammelImg : sojibImg : arifImg;
   return (
     <img
       src={src}
@@ -198,7 +204,7 @@ export default function App() {
           <div className="flex flex-col items-center mb-6">
             <img src={hisabImage} alt="Hishab Logo" className="w-20 h-20 rounded-2xl object-cover mb-2" />
             <h1 className="text-4xl font-black mb-2">হিসাব</h1>
-            <p className="text-gray-600">মহসিন ও জিসান</p>
+            <p className="text-gray-600">মহসিন , রুবেল , মোজাম্মেল সজিব ও আরিফ</p>
           </div>
           <input type="password" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="••••" className="w-full text-3xl text-center py-5 border-2 rounded-2xl outline-none tracking-widest font-mono focus:border-blue-500 transition-colors" />
           {pinError && <p className="text-red-500 mt-4 font-bold">{pinError}</p>}
@@ -228,7 +234,7 @@ export default function App() {
         {/* Main Title with Calligraphy */}
         <div className="flex flex-col items-center mb-6 pt-4">
           <img src={hisabImage} alt="Hishab Logo" className="w-20 h-20 rounded-2xl object-cover mb-2 shadow-lg" />
-          <h1 className="text-4xl font-black text-gray-800 tracking-tight">ডিজিটাল হিসাব</h1>
+          <h1 className="text-4xl font-black text-gray-800 tracking-tight">বাসা পরিষ্কারের সিডিউল</h1>
           <p style={{ fontFamily: "'Dancing Script', cursive" }} className="text-blue-600 text-xl font-bold mt-1 tracking-wider drop-shadow-md">
             Powered by Mahsin
           </p>
@@ -263,10 +269,34 @@ export default function App() {
           </div>
           
           <div className="relative bg-white rounded-3xl p-5 text-gray-800 shadow shadow-blue-100 flex flex-col items-center justify-center text-center border border-blue-50 overflow-hidden">
-            <div className="absolute inset-0 opacity-[0.15] bg-cover bg-top" style={{ backgroundImage: `url(${jisanImg})` }}></div>
+            <div className="absolute inset-0 opacity-[0.15] bg-cover bg-top" style={{ backgroundImage: `url(${rubelImg})` }}></div>
             <div className="relative z-10">
-              <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600 drop-shadow-md">জিসান করেছে</p>
-              <p className="text-2xl font-black mt-1 text-gray-900 drop-shadow-md">৳{memberSpending['জিসান'].toFixed(0)}</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600 drop-shadow-md">রুবেল করেছে</p>
+              <p className="text-2xl font-black mt-1 text-gray-900 drop-shadow-md">৳{memberSpending['রুবেল'].toFixed(0)}</p>
+            </div>
+          </div>
+          
+          <div className="relative bg-white rounded-3xl p-5 text-gray-800 shadow shadow-blue-100 flex flex-col items-center justify-center text-center border border-blue-50 overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.15] bg-cover bg-top" style={{ backgroundImage: `url(${mojammelImg})` }}></div>
+            <div className="relative z-10">
+              <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600 drop-shadow-md">মোজাম্মেল করেছে</p>
+              <p className="text-2xl font-black mt-1 text-gray-900 drop-shadow-md">৳{memberSpending['মোজাম্মেল'].toFixed(0)}</p>
+            </div>
+          </div>
+          
+          <div className="relative bg-white rounded-3xl p-5 text-gray-800 shadow shadow-blue-100 flex flex-col items-center justify-center text-center border border-blue-50 overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.15] bg-cover bg-top" style={{ backgroundImage: `url(${sojibImg})` }}></div>
+            <div className="relative z-10">
+              <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600 drop-shadow-md">সজিব করেছে</p>
+              <p className="text-2xl font-black mt-1 text-gray-900 drop-shadow-md">৳{memberSpending['সজিব'].toFixed(0)}</p>
+            </div>
+          </div>
+          
+          <div className="relative bg-white rounded-3xl p-5 text-gray-800 shadow shadow-blue-100 flex flex-col items-center justify-center text-center border border-blue-50 overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.15] bg-cover bg-top" style={{ backgroundImage: `url(${arifImg})` }}></div>
+            <div className="relative z-10">
+              <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600 drop-shadow-md">আরিফ করেছে</p>
+              <p className="text-2xl font-black mt-1 text-gray-900 drop-shadow-md">৳{memberSpending['আরিফ'].toFixed(0)}</p>
             </div>
           </div>
 
