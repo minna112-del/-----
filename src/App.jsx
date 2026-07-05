@@ -15,10 +15,10 @@ import { db } from "./firebase";
 // ছবি ও ভিডিও ইমপোর্ট করা হলো
 import hisabImage from './hisab.jpeg';
 import mahsinImg from './MAHSIN.jpeg';
-import jisanImg from './RUBEL.jpeg';
-import jisanImg from './MOJAMMEL.jpeg';
-import jisanImg from './SOJIB.jpeg';
-import jisanImg from './ARIF.jpeg';
+import rubelImg from './RUBEL.jpeg';
+import mojammelImg from './MOJAMMEL.jpeg';
+import sojibImg from './SOJIB.jpeg';
+import arifImg from './ARIF.jpeg';
 import splashVideo from './splash_video.mp4'; 
 
 // ================= CONFIG =================
