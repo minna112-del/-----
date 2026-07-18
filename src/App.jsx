@@ -15,9 +15,7 @@ import { db } from "./firebase";
 import hisabImage from './hisab.jpeg';
 import mahsinImg from './MAHSIN.jpeg';
 import rubelImg from './RUBEL.jpeg';
-import mojammelImg from './MOJAMMEL.jpeg';
 import sojibImg from './SOJIB.jpeg';
-import arifImg from './ARIF.jpeg';
 import splashVideo from './splash_video.mp4';
 
 // ================= CONFIG =================
@@ -28,40 +26,36 @@ const EDIT_PIN = "8019";
 const MEMBERS = [
   { id: "m1", name: "মহসিন", img: mahsinImg },
   { id: "m2", name: "রুবেল", img: rubelImg },
-  { id: "m3", name: "মোজাম্মেল", img: mojammelImg },
-  { id: "m4", name: "সজিব", img: sojibImg },
-  { id: "m5", name: "আরিফ", img: arifImg },
+  { id: "m3", name: "সজিব", img: sojibImg },
 ];
 const memberNamesOnly = MEMBERS.map((m) => m.name);
 const memberImgMap = {};
 MEMBERS.forEach(m => memberImgMap[m.name] = m.img);
 
-// ================= পরিষ্কারের সিডিউল =================
-const CLEANING_SCHEDULE = [
-  { day: 1, name: "রুবেল" },
-  { day: 6, name: "সজিব" },
-  { day: 12, name: "মোজাম্মেল" },
-  { day: 17, name: "মহসিন" },
-  { day: 24, name: "আরিফ" },
-];
-
-const getCleaningPersonForDay = (dayOfMonth) => {
-  let current = CLEANING_SCHEDULE[CLEANING_SCHEDULE.length - 1];
-  for (const s of CLEANING_SCHEDULE) {
-    if (s.day <= dayOfMonth) current = s;
-  }
-  return current.name;
+// ================= রান্নার সিডিউল (দৈনিক রোটেশন, প্রতি মাসের ১ তারিখ থেকে মহসিনের পালা শুরু) =================
+const getCookingPersonForDate = (date) => {
+  const d = new Date(date);
+  const dayOfMonth = d.getDate(); // ১ থেকে শুরু
+  const idx = (dayOfMonth - 1) % memberNamesOnly.length;
+  return memberNamesOnly[idx];
 };
 
-const getNextCleaning = () => {
-  const now = new Date();
-  const today = now.getDate();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  let next = CLEANING_SCHEDULE.find(s => s.day >= today);
-  if (next) return { ...next, date: new Date(y, m, next.day) };
-  const first = CLEANING_SCHEDULE[0];
-  return { ...first, date: new Date(y, m + 1, first.day) };
+const getWeekCookingSchedule = () => {
+  const days = [];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push({ date: d, name: getCookingPersonForDate(d) });
+  }
+  return days;
+};
+
+const getNextCooking = () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return { name: getCookingPersonForDate(tomorrow), date: tomorrow };
 };
 
 // ================= HELPERS =================
@@ -88,7 +82,7 @@ const MemberAvatar = ({ name }) => {
 // ================= নোটিফিকেশন হেল্পার =================
 const notifiedKey = () => `notified_${new Date().toDateString()}`;
 
-function useCleaningNotification() {
+function useCookingNotification() {
   const [permission, setPermission] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
@@ -102,14 +96,12 @@ function useCleaningNotification() {
     if (typeof Notification === "undefined") return;
     const interval = setInterval(() => {
       const now = new Date();
-      const today = now.getDate();
-      const isCleaningDay = CLEANING_SCHEDULE.some(s => s.day === today);
       const already = localStorage.getItem(notifiedKey());
 
-      if (isCleaningDay && now.getHours() === 11 && !already && Notification.permission === "granted") {
-        const person = getCleaningPersonForDay(today);
-        new Notification("🧹 বাসা পরিষ্কারের রিমাইন্ডার", {
-          body: `আজ ${person}-এর বাসা পরিষ্কার করার দিন!`,
+      if (now.getHours() === 11 && !already && Notification.permission === "granted") {
+        const person = getCookingPersonForDate(now);
+        new Notification("🍳 রান্নার রিমাইন্ডার", {
+          body: `আজ ${person}-এর রান্না করার দিন!`,
           icon: hisabImage,
         });
         localStorage.setItem(notifiedKey(), "1");
@@ -144,9 +136,10 @@ export default function App() {
   const [actionPinInput, setActionPinInput] = useState("");
   const [editModal, setEditModal] = useState({ isOpen: false, id: "", text: "", amount: "", buyer: "", date: "", category: "বাজার" });
 
-  const { permission: notifPermission, enableNotifications } = useCleaningNotification();
-  const todayCleaner = getCleaningPersonForDay(new Date().getDate());
-  const nextCleaning = getNextCleaning();
+  const { permission: notifPermission, enableNotifications } = useCookingNotification();
+  const todayCook = getCookingPersonForDate(new Date());
+  const nextCooking = getNextCooking();
+  const weekCookingSchedule = getWeekCookingSchedule();
 
   useEffect(() => {
     setLoading(true);
@@ -270,7 +263,7 @@ export default function App() {
           <div className="flex flex-col items-center mb-6">
             <img src={hisabImage} alt="Hishab Logo" className="w-20 h-20 rounded-2xl object-cover mb-2" />
             <h1 className="text-4xl font-black mb-2">হিসাব</h1>
-            <p className="text-gray-600">মহসিন , রুবেল , মোজাম্মেল সজিব ও আরিফ</p>
+            <p className="text-gray-600">মহসিন , রুবেল ও সজিব</p>
           </div>
           <input type="password" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="••••" className="w-full text-3xl text-center py-5 border-2 rounded-2xl outline-none tracking-widest font-mono focus:border-blue-500 transition-colors" />
           {pinError && <p className="text-red-500 mt-4 font-bold">{pinError}</p>}
@@ -295,20 +288,20 @@ export default function App() {
 
         <div className="flex flex-col items-center mb-6 pt-4">
           <img src={hisabImage} alt="Hishab Logo" className="w-20 h-20 rounded-2xl object-cover mb-2 shadow-lg" />
-          <h1 className="text-4xl font-black text-gray-800 tracking-tight">বাসা পরিষ্কারের সিডিউল</h1>
+          <h1 className="text-4xl font-black text-gray-800 tracking-tight">বাসা রান্নার সিডিউল</h1>
           <p style={{ fontFamily: "'Dancing Script', cursive" }} className="text-blue-600 text-xl font-bold mt-1 tracking-wider drop-shadow-md">
             Powered by Mahsin
           </p>
         </div>
 
-        {/* পরিষ্কারের সিডিউল কার্ড */}
+        {/* রান্নার সিডিউল কার্ড */}
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-3xl p-6 text-white shadow-lg">
-          <p className="text-xs uppercase font-bold tracking-widest opacity-80">আজকের দায়িত্ব</p>
-          <p className="text-2xl font-black mt-1">🧹 {todayCleaner}</p>
+          <p className="text-xs uppercase font-bold tracking-widest opacity-80">আজকের রান্নার দায়িত্ব</p>
+          <p className="text-2xl font-black mt-1">🍳 {todayCook}</p>
           <div className="mt-3 pt-3 border-t border-white/30 flex justify-between items-center">
             <div>
-              <p className="text-xs opacity-80">পরবর্তী পরিষ্কার</p>
-              <p className="font-bold">{nextCleaning.name} • {nextCleaning.date.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long' })}</p>
+              <p className="text-xs opacity-80">আগামীকাল</p>
+              <p className="font-bold">{nextCooking.name} • {nextCooking.date.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long' })}</p>
             </div>
             {notifPermission !== "granted" && (
               <button onClick={enableNotifications} className="bg-white/20 hover:bg-white/30 px-3 py-2 rounded-xl text-xs font-bold transition-colors">
@@ -316,11 +309,11 @@ export default function App() {
               </button>
             )}
           </div>
-          <div className="mt-4 grid grid-cols-5 gap-2 text-center">
-            {CLEANING_SCHEDULE.map(s => (
-              <div key={s.day} className={`rounded-xl p-2 ${s.name === todayCleaner ? 'bg-white text-green-700 font-black' : 'bg-white/15'}`}>
-                <p className="text-[10px]">{s.day} তারিখ</p>
-                <p className="text-xs font-bold">{s.name}</p>
+          <div className="mt-4 grid grid-cols-7 gap-1 text-center">
+            {weekCookingSchedule.map((d, i) => (
+              <div key={i} className={`rounded-xl p-2 ${d.name === todayCook && i === 0 ? 'bg-white text-green-700 font-black' : 'bg-white/15'}`}>
+                <p className="text-[9px] opacity-80">{d.date.toLocaleDateString('bn-BD', { weekday: 'short' })}</p>
+                <p className="text-[11px] font-bold mt-0.5">{d.name}</p>
               </div>
             ))}
           </div>
