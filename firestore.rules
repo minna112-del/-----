@@ -1,0 +1,395 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isStaff() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+    function staffRole() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() {
+      return isStaff() && staffRole() == 'admin';
+    }
+    function isZoneManager() {
+      return isStaff() && staffRole() == 'zone_manager';
+    }
+    function isDriver() {
+      return isStaff() && staffRole() == 'driver';
+    }
+    function isInventoryManager() {
+      return isStaff() && staffRole() == 'inventory_manager';
+    }
+    function isFinance() {
+      return isStaff() && staffRole() == 'finance';
+    }
+    function isSupport() {
+      return isStaff() && staffRole() == 'support';
+    }
+    function isProductEditor() {
+      return isStaff() && (staffRole() == 'admin' || staffRole() == 'zone_manager');
+    }
+    function isAdminOrZoneManager() {
+      return isProductEditor();
+    }
+    function isMarketingStaff() {
+      return isStaff() && (staffRole() == 'marketing' || staffRole() == 'crm_manager' || staffRole() == 'growth_automation_manager');
+    }
+
+    // ─── Users ───
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if isStaff() ||
+        (request.auth != null && request.auth.uid == userId &&
+          // কাস্টমার নিজে শুধু wallet 'খরচ' করতে পারবে (কমাতে পারবে, বাড়াতে না) —
+          // checkout-এর নিজস্ব transaction-এর জন্য দরকার। বাড়ানো (bonus/refund/topup)
+          // সবসময় isStaff() অথবা Cloud Function (Admin SDK, rules bypass করে) থেকে আসবে।
+          request.resource.data.walletBalance <= resource.data.walletBalance &&
+          request.resource.data.walletBalance >= 0 &&
+          request.resource.data.referralBonusGiven == resource.data.referralBonusGiven &&
+          request.resource.data.referralCode == resource.data.referralCode &&
+          request.resource.data.referredBy == resource.data.referredBy &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalance']));
+      allow delete: if false;
+    }
+
+    // ─── Staff ───
+    match /staff/{staffId} {
+      allow read: if request.auth != null && request.auth.uid == staffId;
+      allow write: if false;
+    }
+
+    // ─── FCM Push Tokens ───
+    match /fcmTokens/{userId} {
+      allow read: if isStaff() || (request.auth != null && request.auth.uid == userId);
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // ─── Products ───
+    match /products/{productId} {
+      allow read: if true;
+      allow create, delete: if isAdminOrZoneManager();
+      allow update: if isAdminOrZoneManager()
+                    || (
+                      isInventoryManager() &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['stock','status','updatedAt'])
+                    )
+                    || (
+                      // checkout stock decrement / cancel-order stock restore:
+                      // sold ঠিক ততটাই বাড়বে/কমবে যতটা stock কমবে/বাড়বে — আগে কোনো
+                      // auth/direction check ছাড়াই যে কেউ arbitrary stock বসাতে পারতো,
+                      // এখন 1:1 ভারসাম্য বাধ্যতামূলক।
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock','sold'])
+                      && request.resource.data.stock >= 0
+                      && (resource.data.stock - request.resource.data.stock)
+                         == (request.resource.data.sold - resource.data.sold)
+                    );
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin() || isZoneManager() || isDriver() || isFinance() || isSupport()
+                  || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if request.resource.data.status == 'pending'
+                    && request.resource.data.driverId == null
+                    && (request.resource.data.userId == null
+                        || request.resource.data.userId == request.auth.uid);
+
+      allow update: if isAdmin() || isZoneManager() || isDriver()
+                    || (
+                      (resource.data.userId == null || (isSignedIn() && resource.data.userId == request.auth.uid))
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status','cancelledAt','paymentMethod','paymentStatus'])
+                    );
+
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAdmin() || isZoneManager() || isDriver()
+                    || (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid);
+        allow create: if isAdmin() || isZoneManager() || isDriver()
+                      || (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid);
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ─── Drivers ───
+    match /drivers/{driverId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+
+      // NEW — আগে কোনো rule ছিল না, তাই driver app-এর Discover/Opportunities
+      // tab-এর opt-in লেখা সবসময় permission-denied দিত।
+      match /opportunityOptIns/{optInId} {
+        allow read: if isStaff();
+        allow create: if isStaff() && request.auth.uid != null
+                      && request.resource.data.driverUid == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ─── Driver Opportunities (bonus/incentive programs) — NEW ───
+    // আগে কোনো rule ছিল না, তাই driver app-এর "Active Opportunities" list
+    // (read) এবং Marketing ERP-এর publish (write) দুটোই ব্যর্থ হতো।
+    match /driverOpportunities/{oppId} {
+      allow read: if isStaff();
+      allow write: if isAdmin() || isMarketingStaff();
+    }
+
+    // ─── Driver Payout Requests (cash-out) — NEW ───
+    // আগে কোনো rule ছিল না, তাই driver app-এর cash-out feature ব্যবহারই করা যেত না।
+    match /payoutRequests/{reqId} {
+      allow read: if isStaff();
+      allow create: if isDriver() && request.resource.data.driverId == request.auth.uid
+                    && request.resource.data.status == 'processing';
+      allow update: if isAdmin() || isFinance();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Coupons ───
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (
+          // guest checkout-এও কুপন কাজ করার জন্য এখানে request.auth != null বাদ
+          // দেওয়া হয়েছে — usedCount ঠিক +1-ই হতে পারবে, বাকি সব field অপরিবর্তিত
+          // থাকতে হবে, তাই abuse সীমিত। usedCount -1 (cancel refund) ইচ্ছাকৃতভাবে
+          // এখানে নেই — সেটা cancelOrderSecure Cloud Function (Admin SDK) করে।
+          request.resource.data.code == resource.data.code &&
+          request.resource.data.type == resource.data.type &&
+          request.resource.data.value == resource.data.value &&
+          request.resource.data.active == resource.data.active &&
+          request.resource.data.usedCount == resource.data.usedCount + 1
+        );
+    }
+
+    match /saved_lists/{listId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ─── Reviews ───
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.resource.data.verified == false ||
+        (request.auth != null &&
+         request.resource.data.orderId is string &&
+         get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == request.auth.uid &&
+         get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.status == 'delivered');
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ─── SMS লগ ───
+    match /sms_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update, delete: if false;
+    }
+    match /sms_failures/{failureId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ─── Settings ───
+    match /setting/app_version {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /setting/store {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /setting/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Inventory Manager: স্টক পরবর্তনের অডিট লগ ───
+    match /stock_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if isAdmin() || isZoneManager() || isInventoryManager();
+      allow update, delete: if false;
+    }
+
+    // ─── রস্টক রিকোয়েস্ট ───
+    match /restock_requests/{reqId} {
+      allow read: if isStaff();
+      allow create: if isInventoryManager();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── রিফান্ড রিকোয়েস্ট ───
+    match /refund_requests/{reqId} {
+      allow read: if isStaff();
+      allow create: if isSupport();
+      allow update: if isFinance() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── কাস্টমার সাপোর্ট টিকেট ───
+    match /support_tickets/{ticketId} {
+      allow read: if isStaff();
+      allow create, update: if isSupport() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── এস্কেলেশন ───
+    match /escalations/{escId} {
+      allow read: if isStaff();
+      allow create: if isZoneManager() || isSupport();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Staff Chat: Presence ───
+    match /staff_presence/{uid} {
+      allow read: if isStaff();
+      allow write: if isStaff() && request.auth.uid == uid;
+    }
+
+    // ─── Staff Chat: কথোপকথন ───
+    match /staff_conversations/{convId} {
+      allow read: if isStaff() && request.auth.uid in resource.data.participants;
+      allow create: if isStaff() && request.auth.uid in request.resource.data.participants;
+      allow update: if isStaff() && request.auth.uid in resource.data.participants;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isStaff() &&
+          request.auth.uid in get(/databases/$(database)/documents/staff_conversations/$(convId)).data.participants;
+        allow create: if isStaff() &&
+          request.auth.uid in get(/databases/$(database)/documents/staff_conversations/$(convId)).data.participants &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // নিচের সব collection এই সেশনে প্রতিটা staff-workspace ফাইল (hr-erp.js,
+    // bi-erp.js, asset-erp.js, workflow-erp.js, crm.js, finance-erp.js,
+    // crm-erp.js, facilities-erp.js, procurement-erp.js, warehouse-erp.js,
+    // documents.js, features.js) সরাসরি পড়ে, প্রতিটা FB.collection()/
+    // FB.doc() কল বের করে যোগ করা হয়েছে — অনুমান না।
+    //
+    // ⚠️ গুরুত্বপূর্ণ সততার নোট: এই ~৫৭টা collection-এর একটারও rule আগে এই
+    // ফাইলে ছিল না (যেটা আমাকে দেওয়া হয়েছিল)। এত বড় সংখ্যা দেখে সবচেয়ে
+    // সম্ভাব্য ব্যাখ্যা হলো — আমাকে দেওয়া rules ফাইলটা আসল deployed rules-এর
+    // পুরনো/আংশিক কপি, কারণ একটা "production audited v2.4" সিস্টেমে পুরো ২৭টা
+    // workspace-এর ব্যাকএন্ড শুরু থেকেই সম্পূর্ণ অরক্ষিত থাকা অস্বাভাবিক। যদি
+    // Firebase Console-এ এখনই গিয়ে বর্তমান rules দেখো এবং সেখানে এই
+    // collection-গুলোর rule আগে থেকেই থাকে — তাহলে এই ব্লকটা স্রেফ বাদ দিয়ে
+    // দাও, deploy করার দরকার নেই। যদি সত্যিই না থাকে, নিচের rule নিরাপদ ও
+    // কার্যকর একটা starting point (isStaff() broad access — role-ভিত্তিক আরও
+    // সূক্ষ্ম বিভাজন করতে চাইলে সেটা পরের ধাপ, এখানে অনুমান করে নতুন role
+    // বানাইনি)।
+    // ═══════════════════════════════════════════════════════════════
+
+    // ─── HR ERP ───
+    match /job_requisitions/{id} { allow read, write: if isStaff(); }
+    match /job_candidates/{id} { allow read, write: if isStaff(); }
+    match /employee_onboarding/{id} { allow read, write: if isStaff(); }
+    match /performance_reviews/{id} { allow read, write: if isStaff(); }
+    match /training_programs/{id} { allow read, write: if isStaff(); }
+    match /employee_promotions/{id} { allow read, write: if isStaff(); }
+    match /employee_documents/{id} { allow read, write: if isStaff(); }
+
+    // ─── Attendance & Payroll ───
+    match /attendance_records/{id} { allow read, write: if isStaff(); }
+    match /leave_requests/{id} { allow read, write: if isStaff(); }
+    match /company_holidays/{id} { allow read: if isStaff(); allow write: if isAdmin(); }
+    match /payroll_records/{id} { allow read, write: if isAdmin() || isFinance(); }
+    match /salary_adjustments/{id} { allow read, write: if isAdmin() || isFinance(); }
+
+    // ─── Business Intelligence ───
+    match /customer_profiles/{id} { allow read, write: if isStaff(); }
+    match /business_kpis/{id} { allow read: if isStaff(); allow write: if isAdmin() || isFinance(); }
+    match /expense_requests/{id} { allow read, write: if isAdmin() || isFinance(); }
+
+    // ─── Asset Management ───
+    match /company_assets/{id} { allow read, write: if isStaff(); }
+    match /asset_assignments/{id} { allow read, write: if isStaff(); }
+    match /asset_maintenance/{id} { allow read, write: if isStaff(); }
+    match /asset_audits/{id} { allow read, write: if isStaff(); }
+    match /asset_disposals/{id} { allow read, write: if isStaff(); }
+
+    // ─── Workflow Automation ───
+    match /workflow_definitions/{id} { allow read, write: if isStaff(); }
+    match /workflow_instances/{id} { allow read, write: if isStaff(); }
+    match /workflow_approvals/{id} { allow read, write: if isStaff(); }
+    match /workflow_tasks/{id} { allow read, write: if isStaff(); }
+    match /workflow_logs/{id} { allow read, write: if isStaff(); }
+
+    // ─── CRM (Office ও ERP উভয়ে ব্যবহৃত) ───
+    match /customer_loyalty/{id} { allow read, write: if isStaff(); }
+    match /customer_wallets/{id} { allow read, write: if isStaff(); }
+    match /crm_campaigns/{id} { allow read, write: if isStaff(); }
+    match /crm_activities/{id} { allow read, write: if isStaff(); }
+    match /customer_interactions/{id} { allow read, write: if isStaff(); }
+    match /support_knowledge_base/{id} { allow read: if isStaff(); allow write: if isAdmin() || isSupport(); }
+
+    // ─── Finance ERP ───
+    match /vendor_payments/{id} { allow read, write: if isAdmin() || isFinance(); }
+    match /finance_accounts/{id} { allow read, write: if isAdmin() || isFinance(); }
+    match /finance_journals/{id} { allow read, write: if isAdmin() || isFinance(); }
+    match /department_budgets/{id} { allow read, write: if isAdmin() || isFinance(); }
+    match /bank_reconciliation_items/{id} { allow read, write: if isAdmin() || isFinance(); }
+
+    // ─── Facilities & Branch Operations ───
+    match /branches/{id} { allow read: if true; allow write: if isAdmin() || isZoneManager(); }
+    match /facility_requests/{id} { allow read, write: if isStaff(); }
+    match /facility_rents/{id} { allow read, write: if isAdmin() || isFinance(); }
+    match /facility_utilities/{id} { allow read, write: if isStaff(); }
+    match /facility_inspections/{id} { allow read, write: if isStaff(); }
+    match /facility_checklists/{id} { allow read, write: if isStaff(); }
+
+    // ─── Procurement & Vendor ERP ───
+    match /vendors/{id} { allow read, write: if isStaff(); }
+    match /suppliers/{id} { allow read, write: if isStaff(); }
+    match /purchase_requests/{id} { allow read, write: if isStaff(); }
+    match /vendor_quotations/{id} { allow read, write: if isStaff(); }
+    match /purchase_orders/{id} { allow read, write: if isStaff(); }
+    match /goods_receipts/{id} { allow read, write: if isStaff(); }
+    match /vendor_invoices/{id} { allow read, write: if isAdmin() || isFinance(); }
+
+    // ─── Warehouse ERP ───
+    match /warehouse_locations/{id} { allow read, write: if isStaff(); }
+    match /warehouse_bin_inventory/{id} { allow read, write: if isStaff(); }
+    match /warehouse_transfers/{id} { allow read, write: if isStaff(); }
+    match /warehouse_cycle_counts/{id} { allow read, write: if isStaff(); }
+    match /warehouse_damage_records/{id} { allow read, write: if isStaff(); }
+
+    // ─── Company OS ───
+    match /company_notices/{id} { allow read: if isStaff(); allow write: if isAdmin(); }
+    match /company_notifications/{id} { allow read: if isStaff(); allow write: if isAdmin(); }
+    match /company_os_activity/{id} { allow read, create: if isStaff(); allow update, delete: if false; }
+
+    // ─── Settings audit log ───
+    match /settings_audit_logs/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if false; }
+
+    // ─── Customer saved addresses (features.js — users/{uid}.addresses থেকে
+    //      আলাদা, standalone collection; owner-only) ───
+    match /addresses/{id} {
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── Default: বাকি সবকিছু বন্ধ ───
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
