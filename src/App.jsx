@@ -25,8 +25,8 @@ const EDIT_PIN = "8019";
 // ================= MEMBERS =================
 const MEMBERS = [
   { id: "m1", name: "মহসিন", img: mahsinImg },
-  { id: "m2", name: "রুবেল", img: rubelImg },
-  { id: "m3", name: "সজিব", img: sojibImg },
+  { id: "m2", name: "আনোয়ার", img: rubelImg },
+  { id: "m3", name: "আহমেদ", img: sojibImg },
 ];
 const memberNamesOnly = MEMBERS.map((m) => m.name);
 const memberImgMap = {};
