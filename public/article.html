@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="pageTitle">সংবাদ বিস্তারিত | গোলাপি নিউজ</title>
+  
+  <!-- SEO & Social Sharing Dynamic Meta Tags -->
+  <meta name="title" id="metaTitle" content="গোলাপি নিউজ" />
+  <meta name="description" id="metaDesc" content="সত্যের নির্ভীক সারথি — আধুনিক ডিজিটাল বাংলা সংবাদপত্র" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="article" />
+  <meta property="og:url" id="ogUrl" content="https://golapinews.netlify.app/article.html" />
+  <meta property="og:title" id="ogTitle" content="গোলাপি নিউজ - সত্যের নির্ভীক সারথি" />
+  <meta property="og:description" id="ogDesc" content="আধুনিক ডিজিটাল বাংলা সংবাদপত্র" />
+  <meta property="og:image" id="ogImage" content="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&h=630&auto=format&fit=crop&q=80" />
+  <meta property="og:site_name" content="গোলাপি নিউজ" />
+
+  <!-- Google Fonts Bengali -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-header-bar">
+    <div class="container top-bar-flex">
+      <div class="date-time">
+        <span>📅 গোলাপি নিউজ | ডিজিটাল সংস্করণ</span>
+      </div>
+      <div class="top-links">
+        <a href="index.html">← মূল পাতায় ফিরুন</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="main-header">
+    <div class="container header-flex">
+      <div class="brand">
+        <a href="index.html" class="logo-link">
+          <span class="logo-accent">গোলাপি</span>
+          <span class="logo-main">নিউজ</span>
+        </a>
+      </div>
+      <div class="header-ad-space">
+        <div class="adsterra-slot header-ad">
+          <span class="ad-label">বিজ্ঞাপন / Adsterra 728x90 Header Ad</span>
+          <div class="ad-box-mock">Adsterra 728x90 Header Banner Slot</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container article-layout">
+    <article class="article-content">
+      <div class="article-category-badge" id="artCategory">জাতীয়</div>
+      <h1 class="article-main-title" id="artTitle">সংবাদ লোড হচ্ছে...</h1>
+      
+      <div class="article-meta-bar">
+        <div class="author-info">
+          <span class="author-avatar">👤</span>
+          <div>
+            <strong id="artAuthor">প্রতিবেদক</strong>
+            <span class="pub-date" id="artDate">০৫ সেপ্টেম্বর ২০২৬</span>
+          </div>
+        </div>
+        <div class="text-resizer">
+          <span>ফন্ট সাইজ:</span>
+          <button onclick="changeFontSize(-1)">A-</button>
+          <button onclick="changeFontSize(1)">A+</button>
+        </div>
+      </div>
+
+      <!-- Social Share Buttons -->
+      <div class="share-box">
+        <span class="share-title">শেয়ার করুন:</span>
+        <button class="share-btn fb" onclick="shareFacebook()">Facebook</button>
+        <button class="share-btn wa" onclick="shareWhatsApp()">WhatsApp</button>
+        <button class="share-btn me" onclick="shareMessenger()">Messenger</button>
+        <button class="share-btn cp" onclick="copyArticleLink()">Copy Link</button>
+      </div>
+
+      <!-- Featured Image -->
+      <figure class="article-featured-figure">
+        <img id="artImage" src="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&auto=format&fit=crop&q=80" alt="Featured News Image" />
+        <figcaption id="artCaption"></figcaption>
+      </figure>
+
+      <!-- In-Article Adsterra Banner -->
+      <div class="adsterra-infeed-ad">
+        <span class="ad-label">বিজ্ঞাপন / Adsterra In-Article Banner (468x60 / Responsive)</span>
+        <div class="ad-box-mock wide">Adsterra In-Article Banner Slot</div>
+      </div>
+
+      <!-- Article Body -->
+      <div class="article-text-body" id="artBody">
+        সংবাদের মূল বিবরণ লোড হচ্ছে...
+      </div>
+
+      <!-- Related News -->
+      <section class="related-section">
+        <h3 class="section-heading">সম্পর্কিত সংবাদ</h3>
+        <div class="stories-grid" id="relatedList"></div>
+      </section>
+    </article>
+
+    <!-- Sidebar -->
+    <aside class="sidebar-right">
+      <div class="adsterra-slot sidebar-ad">
+        <span class="ad-label">বিজ্ঞাপন / Adsterra 300x250</span>
+        <div class="ad-box-mock square">Adsterra 300x250 Sidebar Banner Space</div>
+      </div>
+      <div class="sidebar-widget">
+        <h3 class="widget-title">সর্বাধিক পঠিত</h3>
+        <ol class="popular-list" id="popularSidebar"></ol>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <h3>গোলাপি নিউজ</h3>
+        <p>© ২০২৬ গোলাপি নিউজ। সর্বস্বত্ব সংরক্ষিত।</p>
+      </div>
+      <div>
+        <p>ইমেইল: editor@golapinews.com | ফোন: +880 1711-889900</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
