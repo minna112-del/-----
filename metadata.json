@@ -1,6 +1,0 @@
-{
-  "name": "গোলাপি নিউজ",
-  "description": "প্রিমিয়াম বাংলা নিউজ পোর্টাল ও সিএমএস অ্যাডমিন - গোলাপি নিউজ",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
