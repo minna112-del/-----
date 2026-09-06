@@ -1,0 +1,61 @@
+name: Build Golapi News APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK platform & build-tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.3.1
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: golapi-news-debug-apk
+          path: ${{ steps.find_apk.outputs.apk_path }}
+
+      - name: Create/Update GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-build
+          name: "সর্বশেষ APK বিল্ড (Latest Build)"
+          body: "এই রিলিজে সবসময় সর্বশেষ কোডের APK থাকবে। ইনস্টল করতে APK ফাইলটি ডাউনলোড করে ফোনে ওপেন করুন।"
+          files: ${{ steps.find_apk.outputs.apk_path }}
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
