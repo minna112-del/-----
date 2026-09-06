@@ -4,16 +4,48 @@ let currentFontSize = 18;
 let currentCategory = 'all';
 let searchQuery = '';
 
-// Load news data from JSON or use embedded fallback
+// Load news data live from Firestore (admin panel দিয়ে যা পোস্ট হয় তা সাথে সাথে এখানে দেখাবে)
+// ব্যর্থ হলে স্ট্যাটিক news-data.json, এরপরও ব্যর্থ হলে embedded fallback ব্যবহার হবে
 async function loadData() {
   try {
-    const res = await fetch('news-data.json?v=' + Date.now());
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    newsData = await res.json();
+    const { db } = await import('./firebase-config.js');
+    const {
+      collection, getDocs, doc, getDoc, query, orderBy
+    } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js');
+
+    const newsSnap = await getDocs(query(collection(db, 'news'), orderBy('createdAt', 'desc')));
+    const news = newsSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(n => n.isPublished !== false);
+
+    if (news.length === 0) throw new Error('Firestore এ এখনো কোনো নিউজ নেই');
+
+    const catSnap = await getDocs(collection(db, 'categories'));
+    const categories = catSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const brkSnap = await getDocs(collection(db, 'breakingNews'));
+    const breakingNews = brkSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(b => b.isActive !== false);
+
+    const settingsSnap = await getDoc(doc(db, 'siteSettings', 'main'));
+    const siteSettings = settingsSnap.exists() ? settingsSnap.data() : {};
+
+    newsData = { siteSettings, breakingNews, news, categories };
     initApp();
   } catch (err) {
-    console.warn('Loading news-data.json failed, initializing embedded fallback:', err);
-    initFallbackData();
+    console.warn('Firestore থেকে লোড ব্যর্থ, স্ট্যাটিক news-data.json ট্রাই করা হচ্ছে:', err);
+    try {
+      const res = await fetch('news-data.json?v=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      newsData = await res.json();
+      initApp();
+    } catch (err2) {
+      console.warn('news-data.json ও ব্যর্থ, embedded fallback ব্যবহার হচ্ছে:', err2);
+      initFallbackData();
+    }
   }
 }
 
