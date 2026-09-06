@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F43F5E"/>
+      <stop offset="100%" stop-color="#BE123C"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Rounded Badge -->
+  <rect width="64" height="64" rx="14" fill="url(#roseGrad)"/>
+  <!-- Folded Newspaper Icon & Bengali Letter "গো" Accent -->
+  <rect x="13" y="14" width="38" height="36" rx="4" fill="#FFFFFF" fill-opacity="0.95"/>
+  <rect x="18" y="20" width="16" height="12" rx="2" fill="#BE123C"/>
+  <rect x="37" y="20" width="10" height="2" rx="1" fill="#475569"/>
+  <rect x="37" y="25" width="10" height="2" rx="1" fill="#475569"/>
+  <rect x="37" y="30" width="8" height="2" rx="1" fill="#475569"/>
+  <rect x="18" y="36" width="28" height="2.5" rx="1.2" fill="#334155"/>
+  <rect x="18" y="41" width="22" height="2.5" rx="1.2" fill="#64748B"/>
+  <circle cx="48" cy="16" r="5" fill="#FDE047"/>
+</svg>

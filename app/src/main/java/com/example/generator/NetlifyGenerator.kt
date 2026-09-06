@@ -6,6 +6,26 @@ import org.json.JSONObject
 
 object NetlifyGenerator {
 
+    private fun buildSrcSet(url: String): String {
+        if (!url.contains("images.unsplash.com")) return ""
+        val base = url.substringBefore("?")
+        return "${base}?w=400&q=75&auto=format&fit=crop 400w, ${base}?w=800&q=80&auto=format&fit=crop 800w, ${base}?w=1200&q=85&auto=format&fit=crop 1200w"
+    }
+
+    private fun renderResponsiveImg(
+        url: String,
+        alt: String,
+        sizes: String,
+        extraClass: String = "",
+        id: String? = null
+    ): String {
+        val srcset = buildSrcSet(url)
+        val srcSetAttr = if (srcset.isNotEmpty()) """ srcset="$srcset" sizes="$sizes"""" else ""
+        val classAttr = if (extraClass.isNotEmpty()) """ class="$extraClass"""" else ""
+        val idAttr = if (id != null) """ id="$id"""" else ""
+        return """<img${idAttr}${classAttr} src="$url"$srcSetAttr alt="$alt" loading="lazy" decoding="async" />"""
+    }
+
     fun generateNewsDataJson(
         newsList: List<NewsItem>,
         categories: List<CategoryItem>,
@@ -106,6 +126,10 @@ object NetlifyGenerator {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${siteSettings.siteName} | ${siteSettings.tagline}</title>
   
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="alternate icon" href="favicon.svg" type="image/svg+xml" />
+
   <!-- Primary Meta Tags -->
   <meta name="title" content="${siteSettings.siteName} - সত্যের নির্ভীক সারথি" />
   <meta name="description" content="${siteSettings.tagline}. সর্বশেষ জাতীয়, রাজনীতি, আন্তর্জাতিক, খেলাধুলা ও বিনোদন সংবাদ।" />
@@ -185,14 +209,18 @@ object NetlifyGenerator {
   <!-- Navigation Bar -->
   <nav class="nav-bar">
     <div class="container nav-flex">
-      <ul class="nav-links">
-        <li><a href="index.html" class="active">সর্বশেষ</a></li>
-        ${categories.filter { it.isVisible && it.slug != "latest" }.joinToString("\n        ") { cat ->
-            """<li><a href="#category-${cat.slug}">${cat.name}</a></li>"""
-        }}
-      </ul>
+      <div class="nav-scroll-wrapper">
+        <ul class="nav-links">
+          <li><a href="index.html" class="active">সর্বশেষ</a></li>
+          ${categories.filter { it.isVisible && it.slug != "latest" }.joinToString("\n          ") { cat ->
+              """<li><a href="#category-${cat.name}">${cat.name}</a></li>"""
+          }}
+        </ul>
+      </div>
       <div class="search-box">
-        <input type="text" id="searchInput" placeholder="সংবাদ অনুসন্ধান করুন..." onkeyup="handleSearch()" />
+        <span class="search-icon">🔍</span>
+        <input type="search" id="searchInput" placeholder="সংবাদ অনুসন্ধান করুন..." oninput="handleSearch(this.value)" autocomplete="off" aria-label="সংবাদ অনুসন্ধান" />
+        <button type="button" class="search-clear-inline" onclick="clearSearch()" title="অনুসন্ধান মুছুন">✕</button>
       </div>
     </div>
   </nav>
@@ -208,42 +236,53 @@ object NetlifyGenerator {
   </div>
 
   <!-- Main Content Layout -->
-  <main class="container main-layout">
+  <main class="container main-layout" id="mainNewsArea">
     <div class="content-left">
       
-      <!-- Lead / Featured News -->
-      ${lead?.let { l -> """
-      <section class="lead-news-card" onclick="openArticle('${l.id}')">
-        <div class="lead-image-wrap">
-          <img src="${l.imageUrl}" alt="${l.title}" loading="lazy" />
-          <span class="category-pill">${l.category}</span>
-        </div>
-        <div class="lead-body">
-          <h1 class="lead-title">${l.title}</h1>
-          <p class="lead-excerpt">${l.shortDescription}</p>
-          <div class="meta-row">
-            <span class="author">✍️ ${l.author}</span>
-            <span class="time">🕒 ${l.publishDate}</span>
-          </div>
-        </div>
-      </section>
-      """ } ?: ""}
+      <!-- Dynamic Search / Category Filter Status Banner -->
+      <div id="searchStatusBanner" style="display: none;"></div>
 
-      <!-- Top Story Grid -->
-      <h2 class="section-heading">শীর্ষ সংবাদ</h2>
-      <div class="stories-grid">
-        ${latest.drop(1).take(4).joinToString("\n") { item -> """
-        <div class="story-card" onclick="openArticle('${item.id}')">
+      <!-- Lead / Featured News Container -->
+      <div id="leadNewsContainer">
+        ${lead?.let { l -> """
+        <section class="lead-news-card" onclick="openArticle('${l.id}')" role="button" tabindex="0">
+          <div class="lead-image-wrap">
+            ${renderResponsiveImg(l.imageUrl, l.title, "(max-width: 640px) 100vw, (max-width: 1024px) 800px, 1000px")}
+            <span class="category-pill">${l.category} • শীর্ষ সংবাদ</span>
+          </div>
+          <div class="lead-body">
+            <h1 class="lead-title">${l.title}</h1>
+            <p class="lead-excerpt">${l.shortDescription}</p>
+            <div class="meta-row">
+              <span class="author">✍️ ${l.author}</span>
+              <span class="time">🕒 ${l.publishDate}</span>
+            </div>
+          </div>
+        </section>
+        """ } ?: ""}
+      </div>
+
+      <!-- Top Story Grid Section -->
+      <div class="section-title-row">
+        <h2 class="section-heading" id="storiesSectionHeading">শীর্ষ সংবাদ</h2>
+      </div>
+
+      <div class="stories-grid" id="storiesGrid">
+        ${latest.filter { it.id != lead?.id }.take(4).joinToString("\n") { item -> """
+        <article class="story-card" onclick="openArticle('${item.id}')" role="button" tabindex="0">
           <div class="card-img-wrap">
-            <img src="${item.imageUrl}" alt="${item.title}" loading="lazy" />
+            ${renderResponsiveImg(item.imageUrl, item.title, "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px")}
             <span class="card-badge">${item.category}</span>
           </div>
           <div class="card-body">
             <h3 class="card-title">${item.title}</h3>
             <p class="card-snippet">${item.shortDescription.take(90)}...</p>
-            <span class="card-time">🕒 ${item.publishDate}</span>
+            <div class="card-meta">
+              <span class="card-time">🕒 ${item.publishDate}</span>
+              ${if (item.viewsCount > 0) """<span class="card-views">👁️ ${item.viewsCount} বার পঠিত</span>""" else ""}
+            </div>
           </div>
-        </div>
+        </article>
         """ }}
       </div>
 
@@ -256,13 +295,15 @@ object NetlifyGenerator {
       """ else ""}
 
       <!-- Video & Media News Section -->
-      <section class="video-news-section">
-        <h2 class="section-heading">ভিডিও ও চিত্রশালা</h2>
-        <div class="video-grid">
+      <section class="video-news-section" id="video">
+        <div class="section-title-row">
+          <h2 class="section-heading">🎥 ভিডিও ও চিত্রশালা</h2>
+        </div>
+        <div class="video-grid" id="videoGrid">
           ${newsList.filter { it.videoUrl != null || it.category == "বিনোদন" || it.category == "খেলাধুলা" }.take(2).joinToString("\n") { item -> """
-          <div class="video-card" onclick="openArticle('${item.id}')">
+          <div class="video-card" onclick="openArticle('${item.id}')" role="button" tabindex="0">
             <div class="video-thumb-wrap">
-              <img src="${item.imageUrl}" alt="${item.title}" />
+              ${renderResponsiveImg(item.imageUrl, item.title, "(max-width: 640px) 100vw, 500px")}
               <div class="play-icon-overlay">▶</div>
             </div>
             <h4 class="video-title">${item.title}</h4>
@@ -289,10 +330,10 @@ object NetlifyGenerator {
 
       <!-- Popular / Most Read News -->
       <div class="sidebar-widget popular-widget">
-        <h3 class="widget-title">সর্বাধিক পঠিত</h3>
-        <ol class="popular-list">
+        <h3 class="widget-title">🔥 সর্বাধিক পঠিত</h3>
+        <ol class="popular-list" id="popularSidebar">
           ${newsList.sortedByDescending { it.viewsCount }.take(5).mapIndexed { idx, itm -> """
-          <li onclick="openArticle('${itm.id}')">
+          <li onclick="openArticle('${itm.id}')" role="button" tabindex="0">
             <span class="rank-num">${idx + 1}</span>
             <div class="pop-details">
               <h4>${itm.title}</h4>
@@ -307,8 +348,8 @@ object NetlifyGenerator {
       <div class="sidebar-widget social-widget">
         <h3 class="widget-title">আমাদের সাথে থাকুন</h3>
         <div class="social-btn-group">
-          <a href="${siteSettings.facebookUrl}" target="_blank" class="social-btn fb">ফেসবুক পেজ</a>
-          <a href="${siteSettings.youtubeUrl}" target="_blank" class="social-btn yt">ইউটিউব চ্যানেল</a>
+          <a href="${siteSettings.facebookUrl}" target="_blank" rel="noopener noreferrer" class="social-btn fb">ফেসবুক পেজ</a>
+          <a href="${siteSettings.youtubeUrl}" target="_blank" rel="noopener noreferrer" class="social-btn yt">ইউটিউব চ্যানেল</a>
         </div>
       </div>
     </aside>
@@ -328,15 +369,15 @@ object NetlifyGenerator {
   <footer class="site-footer">
     <div class="container footer-grid">
       <div class="footer-about" id="about">
-        <h3 class="footer-logo">গোলাপি নিউজ</h3>
+        <h3 class="footer-logo"><span id="footerSiteName">${siteSettings.siteName}</span></h3>
         <p>${siteSettings.aboutUsText}</p>
-        <p class="copyright">© ২০২৬ গোলাপি নিউজ। সর্বস্বত্ব সংরক্ষিত।</p>
+        <p class="copyright">© ২০২৬ ${siteSettings.siteName}। সর্বস্বত্ব সংরক্ষিত।</p>
       </div>
       <div class="footer-contact" id="contact">
         <h4>যোগাযোগ ও বার্তা বিভাগ</h4>
-        <p>ইমেইল: ${siteSettings.contactEmail}</p>
-        <p>ফোন: ${siteSettings.phone}</p>
-        <p>ঠিকানা: ${siteSettings.address}</p>
+        <p><strong>ইমেইল:</strong> <span id="footerEmail">${siteSettings.contactEmail}</span></p>
+        <p><strong>মোবাইল:</strong> <span id="footerPhone">${siteSettings.phone}</span></p>
+        <p><strong>ঠিকানা:</strong> <span id="footerAddress">${siteSettings.address}</span></p>
       </div>
       <div class="footer-links" id="privacy">
         <h4>গুরুত্বপূর্ণ লিংক</h4>
@@ -363,6 +404,10 @@ object NetlifyGenerator {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title id="pageTitle">সংবাদ বিস্তারিত | ${siteSettings.siteName}</title>
   
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="alternate icon" href="favicon.svg" type="image/svg+xml" />
+
   <!-- SEO & Social Sharing Dynamic Tags -->
   <meta name="title" id="metaTitle" content="${siteSettings.siteName}" />
   <meta name="description" id="metaDesc" content="${siteSettings.tagline}" />
@@ -484,12 +529,25 @@ object NetlifyGenerator {
 
   <footer class="site-footer">
     <div class="container footer-grid">
-      <div>
-        <h3>গোলাপি নিউজ</h3>
-        <p>© ২০২৬ গোলাপি নিউজ। সর্বস্বত্ব সংরক্ষিত।</p>
+      <div class="footer-about" id="about">
+        <h3 class="footer-logo"><span id="footerSiteName">${siteSettings.siteName}</span></h3>
+        <p>${siteSettings.aboutUsText}</p>
+        <p class="copyright">© ২০২৬ ${siteSettings.siteName}। সর্বস্বত্ব সংরক্ষিত।</p>
       </div>
-      <div>
-        <p>ইমেইল: ${siteSettings.contactEmail} | ফোন: ${siteSettings.phone}</p>
+      <div class="footer-contact" id="contact">
+        <h4>যোগাযোগ ও বার্তা বিভাগ</h4>
+        <p><strong>ইমেইল:</strong> <span id="footerEmail">${siteSettings.contactEmail}</span></p>
+        <p><strong>মোবাইল:</strong> <span id="footerPhone">${siteSettings.phone}</span></p>
+        <p><strong>ঠিকানা:</strong> <span id="footerAddress">${siteSettings.address}</span></p>
+      </div>
+      <div class="footer-links">
+        <h4>গুরুত্বপূর্ণ লিংক</h4>
+        <ul>
+          <li><a href="article.html?page=about">আমাদের সম্পর্কে</a></li>
+          <li><a href="article.html?page=privacy">গোপনীয়তা নীতি</a></li>
+          <li><a href="article.html?page=terms">ব্যবহারের শর্তাবলী</a></li>
+          <li><a href="index.html">বিজ্ঞাপন দিন</a></li>
+        </ul>
       </div>
     </div>
   </footer>
@@ -1112,10 +1170,14 @@ a {
         return """// গোলাপি নিউজ (Golapi News) - Client Application JS
 let newsData = null;
 let currentFontSize = 18;
+let currentCategory = 'all';
+let searchQuery = '';
 
+// Load news data from JSON
 async function loadData() {
   try {
-    const res = await fetch('news-data.json');
+    const res = await fetch('news-data.json?v=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     newsData = await res.json();
     initApp();
   } catch (err) {
@@ -1124,9 +1186,11 @@ async function loadData() {
 }
 
 function initApp() {
-  // Check if we are on article page
-  if (window.location.pathname.includes('article.html') || window.location.search.includes('id=')) {
+  const isArticle = window.location.pathname.includes('article.html') || window.location.search.includes('id=') || window.location.search.includes('page=');
+  if (isArticle) {
     loadArticleView();
+  } else {
+    initHomePage();
   }
 }
 
@@ -1134,6 +1198,247 @@ function openArticle(id) {
   window.location.href = 'article.html?id=' + encodeURIComponent(id);
 }
 
+// HOMEPAGE LOGIC
+function initHomePage() {
+  if (!newsData) return;
+  syncFooterInfo();
+  renderBreakingTicker();
+  renderPopularSidebar();
+
+  const hash = decodeURIComponent(window.location.hash || '');
+  if (hash.startsWith('#category-')) {
+    const catName = hash.replace('#category-', '');
+    setCategory(catName);
+  } else {
+    renderNewsFeed();
+  }
+
+  setupCategoryTabs();
+}
+
+function syncFooterInfo() {
+  if (!newsData || !newsData.siteSettings) return;
+  const s = newsData.siteSettings;
+  const fEmail = document.getElementById('footerEmail');
+  const fPhone = document.getElementById('footerPhone');
+  const fAddress = document.getElementById('footerAddress');
+  const fName = document.getElementById('footerSiteName');
+
+  if (fEmail && s.contactEmail) fEmail.innerText = s.contactEmail;
+  if (fPhone && s.phone) fPhone.innerText = s.phone;
+  if (fAddress && s.address) fAddress.innerText = s.address;
+  if (fName && s.siteName) fName.innerText = s.siteName;
+}
+
+// Responsive images with srcset & sizes for fast loading and reduced data usage on mobile
+function getSrcSet(url) {
+  if (!url || typeof url !== 'string') return '';
+  if (url.includes('images.unsplash.com')) {
+    const base = url.split('?')[0];
+    return base + '?w=400&q=75&auto=format&fit=crop 400w, ' +
+           base + '?w=750&q=80&auto=format&fit=crop 750w, ' +
+           base + '?w=1200&q=85&auto=format&fit=crop 1200w';
+  }
+  return '';
+}
+
+function renderResponsiveImg(url, alt, sizes, extraClass, id) {
+  const srcset = getSrcSet(url);
+  const srcsetAttr = srcset ? ' srcset="' + srcset + '" sizes="' + sizes + '"' : '';
+  const classAttr = extraClass ? ' class="' + extraClass + '"' : '';
+  const idAttr = id ? ' id="' + id + '"' : '';
+  return '<img' + idAttr + classAttr + ' src="' + url + '"' + srcsetAttr + ' alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" />';
+}
+
+function renderBreakingTicker() {
+  const ticker = document.getElementById('tickerText');
+  if (!ticker || !newsData) return;
+  if (newsData.breakingNews && newsData.breakingNews.length > 0) {
+    ticker.innerText = newsData.breakingNews.map(b => b.headline).join('  •  ');
+  } else if (newsData.news) {
+    ticker.innerText = newsData.news.slice(0, 4).map(n => n.title).join('  •  ');
+  }
+}
+
+function setupCategoryTabs() {
+  const links = document.querySelectorAll('.nav-links a');
+  links.forEach(link => {
+    link.addEventListener('click', function(e) {
+      const href = this.getAttribute('href');
+      if (href && href.startsWith('#category-')) {
+        e.preventDefault();
+        const cat = href.replace('#category-', '');
+        setCategory(cat);
+      } else if (href === 'index.html' || href === '#all' || href === '#latest') {
+        e.preventDefault();
+        setCategory('all');
+      }
+    });
+  });
+}
+
+function setCategory(catName) {
+  currentCategory = catName;
+  searchQuery = '';
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+
+  const links = document.querySelectorAll('.nav-links a');
+  links.forEach(l => {
+    const text = l.innerText.trim();
+    if ((catName === 'all' && (text === 'সর্বশেষ' || l.getAttribute('href') === 'index.html')) ||
+        (text.toLowerCase() === catName.toLowerCase())) {
+      l.classList.add('active');
+    } else {
+      l.classList.remove('active');
+    }
+  });
+
+  renderNewsFeed();
+}
+
+function handleSearch(query) {
+  searchQuery = (query || '').trim();
+  renderNewsFeed();
+}
+
+function clearSearch() {
+  searchQuery = '';
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.focus();
+  }
+  renderNewsFeed();
+}
+
+function clearCategoryFilter() {
+  setCategory('all');
+}
+
+function renderNewsFeed() {
+  if (!newsData || !newsData.news) return;
+
+  const leadContainer = document.getElementById('leadNewsContainer');
+  const sectionHeading = document.getElementById('storiesSectionHeading');
+  const storiesGrid = document.getElementById('storiesGrid');
+  const searchStatus = document.getElementById('searchStatusBanner');
+
+  let filtered = [...newsData.news];
+
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(item =>
+      (item.title && item.title.toLowerCase().includes(q)) ||
+      (item.shortDescription && item.shortDescription.toLowerCase().includes(q)) ||
+      (item.fullContent && item.fullContent.toLowerCase().includes(q)) ||
+      (item.category && item.category.toLowerCase().includes(q)) ||
+      (item.author && item.author.toLowerCase().includes(q))
+    );
+
+    if (leadContainer) leadContainer.style.display = 'none';
+
+    if (searchStatus) {
+      searchStatus.style.display = 'block';
+      searchStatus.innerHTML = `
+        <div class="search-status-bar">
+          <span>🔍 ‘<strong>` + escapeHtml(searchQuery) + `</strong>’ অনুসন্ধানে <strong>` + filtered.length + `</strong>টি সংবাদ পাওয়া গেছে</span>
+          <button class="search-clear-btn" onclick="clearSearch()" title="অনুসন্ধান বাতিল">✕ বাতিল</button>
+        </div>
+      `;
+    }
+
+    if (sectionHeading) {
+      sectionHeading.innerHTML = `অনুসন্ধানের ফলাফল`;
+    }
+
+  } else if (currentCategory && currentCategory !== 'all' && currentCategory !== 'সর্বশেষ') {
+    filtered = filtered.filter(item => 
+      item.category && item.category.trim().toLowerCase() === currentCategory.trim().toLowerCase()
+    );
+
+    if (leadContainer) leadContainer.style.display = 'none';
+
+    if (searchStatus) {
+      searchStatus.style.display = 'block';
+      searchStatus.innerHTML = `
+        <div class="category-filter-bar">
+          <span class="active-cat-label">📂 ক্যাটাগরি: <strong>` + escapeHtml(currentCategory) + `</strong> (` + filtered.length + `টি সংবাদ)</span>
+          <button class="filter-reset-btn" onclick="clearCategoryFilter()">← সব সংবাদ দেখুন</button>
+        </div>
+      `;
+    }
+
+    if (sectionHeading) {
+      sectionHeading.innerHTML = escapeHtml(currentCategory) + ` সংবাদ`;
+    }
+
+  } else {
+    if (searchStatus) {
+      searchStatus.style.display = 'none';
+      searchStatus.innerHTML = '';
+    }
+
+    if (sectionHeading) {
+      sectionHeading.innerHTML = `শীর্ষ সংবাদ`;
+    }
+
+    const leadItem = newsData.news.find(n => n.isFeatured) || newsData.news[0];
+    if (leadContainer && leadItem) {
+      leadContainer.style.display = 'block';
+      leadContainer.innerHTML = `
+        <section class="lead-news-card" onclick="openArticle('` + leadItem.id + `')" role="button" tabindex="0">
+          <div class="lead-image-wrap">
+            ` + renderResponsiveImg(leadItem.imageUrl, leadItem.title, '(max-width: 640px) 100vw, (max-width: 1024px) 800px, 1000px') + `
+            <span class="category-pill">` + escapeHtml(leadItem.category) + ` • শীর্ষ সংবাদ</span>
+          </div>
+          <div class="lead-body">
+            <h1 class="lead-title">` + escapeHtml(leadItem.title) + `</h1>
+            <p class="lead-excerpt">` + escapeHtml(leadItem.shortDescription) + `</p>
+            <div class="meta-row">
+              <span class="author">✍️ ` + escapeHtml(leadItem.author || 'নিজস্ব প্রতিবেদক') + `</span>
+              <span class="time">🕒 ` + escapeHtml(leadItem.publishDate) + `</span>
+            </div>
+          </div>
+        </section>
+      `;
+      filtered = filtered.filter(n => n.id !== leadItem.id);
+    }
+  }
+
+  if (!storiesGrid) return;
+
+  if (filtered.length === 0) {
+    storiesGrid.innerHTML = `
+      <div class="empty-news-state">
+        <div class="empty-icon">📰</div>
+        <h3>কোনো সংবাদ পাওয়া যায়নি</h3>
+        <p>ভিন্ন কোনো শব্দ দিয়ে খুঁজুন অথবা অন্যান্য ক্যাটাগরি ব্রাউজ করুন।</p>
+        <button class="btn-reset-explore" onclick="clearSearch(); clearCategoryFilter();">সকল সংবাদে ফিরে যান</button>
+      </div>
+    `;
+    return;
+  }
+
+  storiesGrid.innerHTML = filtered.map(item => `
+    <article class="story-card" onclick="openArticle('` + item.id + `')" role="button" tabindex="0">
+      <div class="card-img-wrap">
+        ` + renderResponsiveImg(item.imageUrl, item.title, '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px') + `
+        <span class="card-badge">` + escapeHtml(item.category) + `</span>
+      </div>
+      <div class="card-body">
+        <h3 class="card-title">` + escapeHtml(item.title) + `</h3>
+        <p class="card-snippet">` + escapeHtml(item.shortDescription || '') + `</p>
+        <div class="card-meta">
+          <span class="card-time">🕒 ` + escapeHtml(item.publishDate) + `</span>
+          ` + (item.viewsCount ? `<span class="card-views">👁️ ` + item.viewsCount + ` বার পঠিত</span>` : '') + `
+        </div>
+      </div>
+    </article>
+  `).join('');
+}
+
+// ARTICLE VIEW LOGIC
 function loadArticleView() {
   const urlParams = new URLSearchParams(window.location.search);
   const articleId = urlParams.get('id');
@@ -1148,27 +1453,46 @@ function loadArticleView() {
   const article = newsData.news.find(n => n.id === articleId) || newsData.news[0];
   if (!article) return;
 
-  // Title & Content
-  document.getElementById('pageTitle').innerText = article.title + ' | ' + newsData.siteSettings.siteName;
-  document.getElementById('artTitle').innerText = article.title;
-  document.getElementById('artCategory').innerText = article.category;
-  document.getElementById('artAuthor').innerText = article.author || 'নিজস্ব প্রতিবেদক';
-  document.getElementById('artDate').innerText = 'প্রকাশিত: ' + article.publishDate;
-  document.getElementById('artImage').src = article.imageUrl;
-  document.getElementById('artCaption').innerText = article.imageCaption || article.title;
-  document.getElementById('artBody').innerText = article.fullContent;
+  const pageTitle = document.getElementById('pageTitle');
+  const artTitle = document.getElementById('artTitle');
+  const artCategory = document.getElementById('artCategory');
+  const artAuthor = document.getElementById('artAuthor');
+  const artDate = document.getElementById('artDate');
+  const artImage = document.getElementById('artImage');
+  const artCaption = document.getElementById('artCaption');
+  const artBody = document.getElementById('artBody');
 
-  // SEO Open Graph meta tags updates for Facebook & Twitter
-  document.getElementById('metaTitle').setAttribute('content', article.seoTitle || article.title);
-  document.getElementById('metaDesc').setAttribute('content', article.seoDescription || article.shortDescription);
-  document.getElementById('ogTitle').setAttribute('content', article.title);
-  document.getElementById('ogDesc').setAttribute('content', article.shortDescription);
-  document.getElementById('ogImage').setAttribute('content', article.ogImageUrl || article.imageUrl);
-  document.getElementById('ogUrl').setAttribute('content', window.location.href);
+  const siteName = (newsData.siteSettings && newsData.siteSettings.siteName) || 'গোলাপি নিউজ';
 
-  // Render Related
+  if (pageTitle) pageTitle.innerText = article.title + ' | ' + siteName;
+  if (artTitle) artTitle.innerText = article.title;
+  if (artCategory) {
+    artCategory.innerText = article.category;
+    artCategory.onclick = () => { window.location.href = 'index.html#category-' + encodeURIComponent(article.category); };
+    artCategory.style.cursor = 'pointer';
+  }
+  if (artAuthor) artAuthor.innerText = article.author || 'নিজস্ব প্রতিবেদক';
+  if (artDate) artDate.innerText = 'প্রকাশিত: ' + article.publishDate;
+  if (artImage) {
+    artImage.src = article.imageUrl;
+    artImage.alt = article.title;
+    artImage.loading = 'eager';
+    artImage.decoding = 'async';
+    const srcset = getSrcSet(article.imageUrl);
+    if (srcset) {
+      artImage.srcset = srcset;
+      artImage.sizes = "(max-width: 640px) 100vw, (max-width: 1024px) 800px, 900px";
+    } else {
+      artImage.removeAttribute('srcset');
+      artImage.removeAttribute('sizes');
+    }
+  }
+  if (artCaption) artCaption.innerText = article.imageCaption || article.title;
+  if (artBody) artBody.innerText = article.fullContent;
+
   renderRelated(article.category, article.id);
   renderPopularSidebar();
+  syncFooterInfo();
 }
 
 function renderStaticPage(type) {
@@ -1177,32 +1501,48 @@ function renderStaticPage(type) {
     privacy: 'গোপনীয়তা নীতি',
     terms: 'ব্যবহারের শর্তাবলী'
   };
+  const s = newsData.siteSettings || {};
   const texts = {
-    about: newsData.siteSettings.aboutUsText,
-    privacy: newsData.siteSettings.privacyPolicyText,
-    terms: newsData.siteSettings.termsText
+    about: s.aboutUsText || 'গোলাপি নিউজ বাংলাদেশের একটি অগ্রণী ডিজিটাল বাংলা নিউজ পোর্টাল।',
+    privacy: s.privacyPolicyText || 'পাঠকদের তথ্য সুরক্ষায় আমরা প্রতিশ্রুতিবদ্ধ।',
+    terms: s.termsText || 'সকল কপিরাইট সংরক্ষিত।'
   };
 
-  document.getElementById('pageTitle').innerText = (titles[type] || 'তথ্য') + ' | ' + newsData.siteSettings.siteName;
-  document.getElementById('artCategory').innerText = 'গোলাপি নিউজ';
-  document.getElementById('artTitle').innerText = titles[type] || 'পৃষ্ঠা';
-  document.getElementById('artDate').innerText = 'আপডেট: ২০২৬';
-  document.getElementById('artImage').style.display = 'none';
-  document.getElementById('artBody').innerText = texts[type] || 'তথ্য প্রস্তুত করা হচ্ছে।';
-  document.querySelector('.share-box').style.display = 'none';
+  const pageTitle = document.getElementById('pageTitle');
+  const artCategory = document.getElementById('artCategory');
+  const artTitle = document.getElementById('artTitle');
+  const artDate = document.getElementById('artDate');
+  const artImage = document.getElementById('artImage');
+  const artBody = document.getElementById('artBody');
+
+  if (pageTitle) pageTitle.innerText = (titles[type] || 'তথ্য') + ' | ' + (s.siteName || 'গোলাপি নিউজ');
+  if (artCategory) artCategory.innerText = s.siteName || 'গোলাপি নিউজ';
+  if (artTitle) artTitle.innerText = titles[type] || 'তথ্য';
+  if (artDate) artDate.innerText = 'আপডেট: ২০২৬';
+  if (artImage) artImage.style.display = 'none';
+  if (artBody) artBody.innerText = texts[type] || 'তথ্য প্রস্তুত করা হচ্ছে।';
+  
+  const shareBox = document.querySelector('.share-box');
+  if (shareBox) shareBox.style.display = 'none';
+  syncFooterInfo();
 }
 
 function renderRelated(category, excludeId) {
   const container = document.getElementById('relatedList');
-  if (!container || !newsData) return;
-  const list = newsData.news.filter(n => n.id !== excludeId).slice(0, 3);
+  if (!container || !newsData || !newsData.news) return;
+  const sameCat = newsData.news.filter(n => n.category === category && n.id !== excludeId);
+  const other = newsData.news.filter(n => n.id !== excludeId && !sameCat.includes(n));
+  const list = [...sameCat, ...other].slice(0, 3);
+
   container.innerHTML = list.map(item => `
-    <div class="story-card" onclick="openArticle('${'$'}{item.id}')">
+    <div class="story-card" onclick="openArticle('` + item.id + `')" role="button" tabindex="0">
       <div class="card-img-wrap">
-        <img src="${'$'}{item.imageUrl}" alt="${'$'}{item.title}" />
+        ` + renderResponsiveImg(item.imageUrl, item.title, '(max-width: 640px) 100vw, 360px') + `
+        <span class="card-badge">` + escapeHtml(item.category) + `</span>
       </div>
       <div class="card-body">
-        <h4 class="card-title">${'$'}{item.title}</h4>
+        <h4 class="card-title">` + escapeHtml(item.title) + `</h4>
+        <span class="card-time">🕒 ` + escapeHtml(item.publishDate) + `</span>
       </div>
     </div>
   `).join('');
@@ -1210,20 +1550,19 @@ function renderRelated(category, excludeId) {
 
 function renderPopularSidebar() {
   const container = document.getElementById('popularSidebar');
-  if (!container || !newsData) return;
-  const list = [...newsData.news].sort((a, b) => b.viewsCount - a.viewsCount).slice(0, 5);
+  if (!container || !newsData || !newsData.news) return;
+  const list = [...newsData.news].sort((a, b) => (b.viewsCount || 0) - (a.viewsCount || 0)).slice(0, 5);
   container.innerHTML = list.map((item, idx) => `
-    <li onclick="openArticle('${'$'}{item.id}')">
-      <span class="rank-num">${'$'}{idx + 1}</span>
+    <li onclick="openArticle('` + item.id + `')" role="button" tabindex="0">
+      <span class="rank-num">` + (idx + 1) + `</span>
       <div class="pop-details">
-        <h4>${'$'}{item.title}</h4>
-        <span class="pop-time">${'$'}{item.publishDate}</span>
+        <h4>` + escapeHtml(item.title) + `</h4>
+        <span class="pop-time">` + escapeHtml(item.publishDate) + `</span>
       </div>
     </li>
   `).join('');
 }
 
-// Share Functions
 function shareFacebook() {
   const url = encodeURIComponent(window.location.href);
   window.open('https://www.facebook.com/sharer/sharer.php?u=' + url, '_blank', 'width=600,height=400');
@@ -1241,7 +1580,9 @@ function shareMessenger() {
 
 function copyArticleLink() {
   navigator.clipboard.writeText(window.location.href).then(() => {
-    alert('সংবাদের লিংক কপি করা হয়েছে!');
+    showToast('সংবাদের লিংক সফলভাবে কপি করা হয়েছে!');
+  }).catch(() => {
+    alert('লিংক কপি করা হয়েছে: ' + window.location.href);
   });
 }
 
@@ -1253,10 +1594,29 @@ function changeFontSize(delta) {
   if (body) body.style.fontSize = currentFontSize + 'px';
 }
 
-function handleSearch() {
-  const q = document.getElementById('searchInput').value.toLowerCase().trim();
-  if (!q) return;
-  console.log('Searching for:', q);
+function showToast(message) {
+  let toast = document.getElementById('toastNotice');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toastNotice';
+    toast.className = 'toast-notice';
+    document.body.appendChild(toast);
+  }
+  toast.innerText = message;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2500);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 document.addEventListener('DOMContentLoaded', loadData);

@@ -85,15 +85,31 @@ class NewsRepository(private val context: Context) {
         )
 
         // Load Settings
+        val rawEmail = prefs.getString("site_email", "golapishoponline.bd@gmail.com") ?: "golapishoponline.bd@gmail.com"
+        val realEmail = if (rawEmail == "editor@golapinews.com" || rawEmail.isBlank()) "golapishoponline.bd@gmail.com" else rawEmail
+
+        val rawPhone = prefs.getString("site_phone", "01612-057371") ?: "01612-057371"
+        val realPhone = if (rawPhone.contains("1711") || rawPhone.contains("১৭১১") || rawPhone.isBlank()) "01612-057371" else rawPhone
+
+        val rawAddress = prefs.getString("site_address", "চৌরাস্তা ,বেগমগণ্জ, নোয়াখালী , বাংলাদেশ") ?: "চৌরাস্তা ,বেগমগণ্জ, নোয়াখালী , বাংলাদেশ"
+        val realAddress = if (rawAddress.contains("বাজার") || rawAddress.isBlank()) "চৌরাস্তা ,বেগমগণ্জ, নোয়াখালী , বাংলাদেশ" else rawAddress
+
         _siteSettings.value = SiteSettings(
             siteName = prefs.getString("site_name", "গোলাপি নিউজ") ?: "গোলাপি নিউজ",
             tagline = prefs.getString("site_tagline", "সত্যের নির্ভীক সারথি — আধুনিক ডিজিটাল বাংলা সংবাদপত্র") ?: "সত্যের নির্ভীক সারথি — আধুনিক ডিজিটাল বাংলা সংবাদপত্র",
-            contactEmail = prefs.getString("site_email", "editor@golapinews.com") ?: "editor@golapinews.com",
-            phone = prefs.getString("site_phone", "+880 1711-889900") ?: "+880 1711-889900",
-            address = prefs.getString("site_address", "কাওরান বাজার বাণিজ্যিক এলাকা, ঢাকা-১২১৫, বাংলাদেশ") ?: "কাওরান বাজার বাণিজ্যিক এলাকা, ঢাকা-১২১৫, বাংলাদেশ",
+            contactEmail = realEmail,
+            phone = realPhone,
+            address = realAddress,
             facebookUrl = prefs.getString("site_facebook", "https://facebook.com/golapinews") ?: "https://facebook.com/golapinews",
             youtubeUrl = prefs.getString("site_youtube", "https://youtube.com/@golapinews") ?: "https://youtube.com/@golapinews"
         )
+        // Keep preferences synchronized with real data
+        prefs.edit().apply {
+            putString("site_email", realEmail)
+            putString("site_phone", realPhone)
+            putString("site_address", realAddress)
+            apply()
+        }
     }
 
     // CRUD NEWS
