@@ -278,6 +278,11 @@ function syncFooterInfo() {
   if (fAddress) fAddress.innerText = s.address || 'চৌরাস্তা ,বেগমগণ্জ, নোয়াখালী , বাংলাদেশ';
   if (fHotline) fHotline.innerText = s.hotline || s.phone || '01612-057371';
   if (fName) fName.innerText = s.siteName || 'গোলাপি নিউজ';
+
+  const fFb = document.getElementById('footerFbBtn');
+  const fYt = document.getElementById('footerYtBtn');
+  if (fFb && s.facebookUrl) fFb.href = s.facebookUrl;
+  if (fYt && s.youtubeUrl) fYt.href = s.youtubeUrl;
 }
 
 // Responsive images with srcset & sizes for fast loading and reduced data usage on mobile
