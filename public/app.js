@@ -468,14 +468,13 @@ function renderNewsFeed() {
         <section class="lead-news-card" onclick="openArticle('${leadItem.id}')" role="button" tabindex="0">
           <div class="lead-image-wrap">
             ${renderResponsiveImg(leadItem.imageUrl, leadItem.title, '(max-width: 640px) 100vw, (max-width: 1024px) 800px, 1000px')}
-            <span class="category-pill">${escapeHtml(leadItem.category)} • শীর্ষ সংবাদ</span>
-          </div>
-          <div class="lead-body">
-            <h1 class="lead-title">${escapeHtml(leadItem.title)}</h1>
-            <p class="lead-excerpt">${escapeHtml(leadItem.shortDescription)}</p>
-            <div class="meta-row">
-              <span class="author">✍️ ${escapeHtml(leadItem.author || 'নিজস্ব প্রতিবেদক')}</span>
-              <span class="time">🕒 ${escapeHtml(leadItem.publishDate)}</span>
+            <div class="lead-overlay">
+              <span class="category-pill">${escapeHtml(leadItem.category)} • শীর্ষ সংবাদ</span>
+              <h1 class="lead-title">${escapeHtml(leadItem.title)}</h1>
+              <div class="meta-row">
+                <span class="author">✍️ ${escapeHtml(leadItem.author || 'নিজস্ব প্রতিবেদক')}</span>
+                <span class="time">🕒 ${escapeHtml(leadItem.publishDate)}</span>
+              </div>
             </div>
           </div>
         </section>
