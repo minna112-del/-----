@@ -290,28 +290,40 @@ $('settingsSaveBtn').addEventListener('click', async () => {
 });
 
 // ================= ONE-TIME SEED IMPORT =================
+function stripUndefinedFields(obj) {
+  const clean = {};
+  Object.keys(obj).forEach(key => {
+    if (obj[key] !== undefined) clean[key] = obj[key];
+  });
+  return clean;
+}
+
 $('seedBtn').addEventListener('click', async () => {
   if (!confirm('আগের news-data.json ফাইলের সব ডেটা Firestore এ কপি হবে। চালিয়ে যেতে চান?')) return;
   $('seedBtn').disabled = true;
   $('seedBtn').innerText = 'ইম্পোর্ট হচ্ছে...';
   try {
     const res = await fetch('news-data.json?v=' + Date.now());
+    if (!res.ok) throw new Error('news-data.json fetch failed: HTTP ' + res.status);
     const data = await res.json();
 
     for (const n of (data.news || [])) {
       const id = n.id || slugify(n.title);
-      await setDoc(doc(db, 'news', id), { ...n, id: undefined, createdAt: serverTimestamp() }, { merge: true });
+      const { id: _skip, ...rest } = n;
+      await setDoc(doc(db, 'news', id), stripUndefinedFields({ ...rest, createdAt: serverTimestamp() }), { merge: true });
     }
     for (const c of (data.categories || [])) {
       const id = c.id || c.slug || slugify(c.name);
-      await setDoc(doc(db, 'categories', id), { ...c, id: undefined }, { merge: true });
+      const { id: _skip, ...rest } = c;
+      await setDoc(doc(db, 'categories', id), stripUndefinedFields(rest), { merge: true });
     }
     for (const b of (data.breakingNews || [])) {
       const id = b.id || ('brk_' + Date.now() + Math.random().toString(36).slice(2, 6));
-      await setDoc(doc(db, 'breakingNews', id), { ...b, id: undefined, isActive: true, createdAt: serverTimestamp() }, { merge: true });
+      const { id: _skip, ...rest } = b;
+      await setDoc(doc(db, 'breakingNews', id), stripUndefinedFields({ ...rest, isActive: true, createdAt: serverTimestamp() }), { merge: true });
     }
     if (data.siteSettings) {
-      await setDoc(doc(db, 'siteSettings', 'main'), data.siteSettings, { merge: true });
+      await setDoc(doc(db, 'siteSettings', 'main'), stripUndefinedFields(data.siteSettings), { merge: true });
     }
 
     toast('ইম্পোর্ট সম্পন্ন হয়েছে ✓');
@@ -319,7 +331,8 @@ $('seedBtn').addEventListener('click', async () => {
     loadBreakingList();
     loadSettings();
   } catch (err) {
-    toast('ইম্পোর্ট ব্যর্থ হয়েছে, আবার চেষ্টা করুন');
+    console.error('Seed import error:', err);
+    toast('ইম্পোর্ট ব্যর্থ: ' + (err.message || 'অজানা সমস্যা'));
   } finally {
     $('seedBtn').disabled = false;
     $('seedBtn').innerText = 'প্রাথমিক ডেটা ইম্পোর্ট করুন';
