@@ -13,24 +13,29 @@ async function loadData() {
       collection, getDocs, doc, getDoc, query, orderBy
     } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js');
 
-    const newsSnap = await getDocs(query(collection(db, 'news'), orderBy('createdAt', 'desc')));
+    // সব কয়টা Firestore রিকোয়েস্ট একসাথে (parallel) পাঠানো হচ্ছে — একটার পর একটা না,
+    // এতে লোড টাইম প্রায় ৪ গুণ কমে যায়
+    const [newsSnap, catSnap, brkSnap, settingsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'news'), orderBy('createdAt', 'desc'))),
+      getDocs(collection(db, 'categories')),
+      getDocs(collection(db, 'breakingNews')),
+      getDoc(doc(db, 'siteSettings', 'main'))
+    ]);
+
     const news = newsSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .filter(n => n.isPublished !== false);
 
     if (news.length === 0) throw new Error('Firestore এ এখনো কোনো নিউজ নেই');
 
-    const catSnap = await getDocs(collection(db, 'categories'));
     const categories = catSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    const brkSnap = await getDocs(collection(db, 'breakingNews'));
     const breakingNews = brkSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .filter(b => b.isActive !== false);
 
-    const settingsSnap = await getDoc(doc(db, 'siteSettings', 'main'));
     const siteSettings = settingsSnap.exists() ? settingsSnap.data() : {};
 
     newsData = { siteSettings, breakingNews, news, categories };
