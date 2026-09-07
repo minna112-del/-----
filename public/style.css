@@ -4,23 +4,23 @@
 */
 
 :root {
-  --rose-primary: #E11D48;      /* Vibrant Pink/Rose */
-  --rose-deep: #BE123C;
-  --rose-light: #FFF1F2;
-  --rose-container: #FFE4E6;
-  --rose-border: #FECDD3;
-  --slate-900: #0F172A;
-  --slate-800: #1E293B;
-  --slate-700: #334155;
-  --slate-600: #475569;
-  --slate-500: #64748B;
-  --slate-200: #E2E8F0;
-  --slate-100: #F1F5F9;
-  --slate-50: #F8FAFC;
+  --rose-primary: #9F1239;      /* Deep Editorial Crimson */
+  --rose-deep: #6B0F29;
+  --rose-light: #FBEAEE;
+  --rose-container: #F4D3DA;
+  --rose-border: #E8B4C0;
+  --slate-900: #14171F;
+  --slate-800: #1E222C;
+  --slate-700: #3A3F4B;
+  --slate-600: #565C69;
+  --slate-500: #767C89;
+  --slate-200: #E3E1DD;
+  --slate-100: #F0EEEA;
+  --slate-50: #F8F7F4;
   --white: #FFFFFF;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
 }
 
 * {
@@ -207,11 +207,10 @@ img {
 /* ------------------------------------ */
 .nav-bar {
   background: var(--white);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1px solid var(--slate-200);
+  border-bottom: 3px solid var(--rose-primary);
 }
 .nav-flex {
   display: flex;
@@ -407,15 +406,14 @@ img {
 .lead-news-card {
   background: var(--white);
   border-radius: var(--radius-md);
+  border: 1px solid var(--slate-200);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-bottom: 28px;
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.18s ease;
 }
 .lead-news-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(225, 29, 72, 0.08);
+  border-color: var(--rose-primary);
 }
 .lead-news-card:active {
   transform: scale(0.99);
@@ -453,6 +451,8 @@ img {
   padding: 20px;
 }
 .lead-title {
+  font-family: 'Noto Serif Bengali', serif;
+  font-weight: 700;
   font-size: 26px;
   margin-bottom: 10px;
   transition: color 0.15s ease;
@@ -483,16 +483,15 @@ img {
 .story-card {
   background: var(--white);
   border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-200);
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.15s ease;
 }
 .story-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  border-color: var(--rose-primary);
 }
 .story-card:active {
   transform: scale(0.985);
@@ -532,6 +531,8 @@ img {
   justify-content: space-between;
 }
 .card-title {
+  font-family: 'Noto Serif Bengali', serif;
+  font-weight: 700;
   font-size: 17px;
   margin-bottom: 8px;
   transition: color 0.15s ease;
