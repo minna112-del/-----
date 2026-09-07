@@ -127,7 +127,11 @@ img {
   line-height: 1;
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   letter-spacing: -0.5px;
+}
+.logo-mark {
+  flex-shrink: 0;
 }
 .logo-accent {
   color: var(--white);
@@ -990,6 +994,10 @@ img {
   }
   .logo-link {
     font-size: 32px;
+  }
+  .logo-mark {
+    width: 32px;
+    height: 32px;
   }
   .lead-title {
     font-size: 21px;

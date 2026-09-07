@@ -194,7 +194,19 @@ function initFallbackData() {
   initApp();
 }
 
+function updateTopBarDate() {
+  const el = document.getElementById('topBarDate');
+  if (!el) return;
+  const days = ['রবিবার','সোমবার','মঙ্গলবার','বুধবার','বৃহস্পতিবার','শুক্রবার','শনিবার'];
+  const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const enDigits = '0123456789', bnDigits = '০১২৩৪৫৬৭৮৯';
+  const toBn = (n) => String(n).split('').map(d => bnDigits[enDigits.indexOf(d)] ?? d).join('');
+  const now = new Date();
+  el.innerText = `📅 ${days[now.getDay()]}, ${toBn(now.getDate())} ${months[now.getMonth()]} ${toBn(now.getFullYear())}`;
+}
+
 function initApp() {
+  updateTopBarDate();
   const isArticle = window.location.pathname.includes('article.html') || window.location.search.includes('id=') || window.location.search.includes('page=');
   if (isArticle) {
     loadArticleView();
