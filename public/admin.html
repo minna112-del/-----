@@ -41,6 +41,13 @@
   .btn-share{background:#EFF6FF;color:#1D4ED8;}
   .btn-small{padding:8px 12px;font-size:12px;}
   .err{color:#DC2626;font-size:13px;margin-top:10px;min-height:16px;text-align:center;}
+  .upload-box{border:2px dashed var(--slate-300);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:var(--slate-50);transition:border-color .15s ease;}
+  .upload-box:active{border-color:var(--rose);}
+  .upload-prompt{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--slate-500);font-size:13px;font-weight:600;}
+  .upload-icon{font-size:28px;}
+  .upload-preview{width:100%;max-height:220px;object-fit:cover;border-radius:8px;}
+  .upload-progress-text{color:var(--rose);font-size:13px;font-weight:700;}
+  .field-hint{font-size:12px;color:var(--slate-500);margin-top:6px;}
 
   /* ---------- Dashboard shell ---------- */
   .topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;
@@ -221,8 +228,18 @@
       <label>লেখক</label>
       <input type="text" id="fAuthor" value="নিজস্ব প্রতিবেদক" />
 
-      <label>ছবির লিংক (URL) *</label>
-      <input type="url" id="fImageUrl" placeholder="https://..." />
+      <label>নিউজের ছবি *</label>
+      <div id="imageUploadArea" class="upload-box">
+        <input type="file" id="fImageFile" accept="image/*" style="display:none;" />
+        <div id="uploadPrompt" class="upload-prompt">
+          <span class="upload-icon">📷</span>
+          <span>ছবি আপলোড করতে এখানে চাপুন</span>
+        </div>
+        <img id="uploadPreview" class="upload-preview hidden" />
+        <div id="uploadProgress" class="upload-progress-text hidden">আপলোড হচ্ছে...</div>
+      </div>
+      <input type="hidden" id="fImageUrl" />
+      <p class="field-hint">নিজের তোলা ছবি বা AI দিয়ে বানানো ছবি — যেকোনোটা আপলোড করতে পারো। বাইরের কোনো ওয়েবসাইটের ছবির লিংক ব্যবহারের দরকার নেই।</p>
 
       <label>ছবির ক্যাপশন</label>
       <input type="text" id="fImageCaption" />

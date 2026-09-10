@@ -1,10 +1,13 @@
-import { db, auth } from './firebase-config.js';
+import { db, auth, storage } from './firebase-config.js';
 import {
   collection, getDocs, getDoc, doc, setDoc, deleteDoc, query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+import {
+  ref, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-storage.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -132,6 +135,20 @@ function escapeHtml(str) {
 }
 
 // ---- Editor modal open/close ----
+function setUploadPreview(url) {
+  const prompt = $('uploadPrompt');
+  const preview = $('uploadPreview');
+  if (url) {
+    preview.src = url;
+    preview.classList.remove('hidden');
+    prompt.classList.add('hidden');
+  } else {
+    preview.classList.add('hidden');
+    preview.src = '';
+    prompt.classList.remove('hidden');
+  }
+}
+
 function openEditor(item) {
   $('editorError').innerText = '';
   if (item) {
@@ -141,6 +158,7 @@ function openEditor(item) {
     $('fCategory').value = item.category || 'জাতীয়';
     $('fAuthor').value = item.author || 'নিজস্ব প্রতিবেদক';
     $('fImageUrl').value = item.imageUrl || '';
+    setUploadPreview(item.imageUrl || '');
     $('fImageCaption').value = item.imageCaption || '';
     $('fShortDesc').value = item.shortDescription || '';
     $('fFullContent').value = item.fullContent || '';
@@ -155,6 +173,7 @@ function openEditor(item) {
     $('fCategory').value = 'জাতীয়';
     $('fAuthor').value = 'নিজস্ব প্রতিবেদক';
     $('fImageUrl').value = '';
+    setUploadPreview('');
     $('fImageCaption').value = '';
     $('fShortDesc').value = '';
     $('fFullContent').value = '';
@@ -168,6 +187,39 @@ function openEditor(item) {
 
 $('addNewsFab').addEventListener('click', () => openEditor(null));
 $('editorCancelBtn').addEventListener('click', () => $('editorModal').classList.add('hidden'));
+
+// ---- Image Upload (Firebase Storage) ----
+$('imageUploadArea').addEventListener('click', () => {
+  if ($('uploadProgress').classList.contains('hidden')) {
+    $('fImageFile').click();
+  }
+});
+
+$('fImageFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  $('uploadPrompt').classList.add('hidden');
+  $('uploadPreview').classList.add('hidden');
+  $('uploadProgress').classList.remove('hidden');
+  $('uploadProgress').innerText = 'আপলোড হচ্ছে...';
+
+  try {
+    const safeName = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
+    const storageRef = ref(storage, 'news-images/' + safeName);
+    await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(storageRef);
+    $('fImageUrl').value = url;
+    $('uploadProgress').classList.add('hidden');
+    setUploadPreview(url);
+    toast('ছবি আপলোড হয়েছে ✓');
+  } catch (err) {
+    console.error('Upload error:', err);
+    $('uploadProgress').classList.add('hidden');
+    setUploadPreview('');
+    toast('ছবি আপলোড ব্যর্থ হয়েছে, আবার চেষ্টা করুন');
+  }
+});
 
 window.__editNews = (id) => {
   const item = newsCache.find(n => n.id === id);
@@ -188,7 +240,7 @@ $('editorSaveBtn').addEventListener('click', async () => {
   const fullContent = $('fFullContent').value.trim();
 
   if (!title || !imageUrl || !shortDescription || !fullContent) {
-    $('editorError').innerText = 'শিরোনাম, ছবির লিংক, সারসংক্ষেপ ও সম্পূর্ণ প্রতিবেদন আবশ্যক';
+    $('editorError').innerText = 'শিরোনাম, ছবি, সারসংক্ষেপ ও সম্পূর্ণ প্রতিবেদন আবশ্যক';
     return;
   }
 
