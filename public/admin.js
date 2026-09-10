@@ -11,6 +11,32 @@ import {
 
 const $ = (id) => document.getElementById(id);
 
+// বাংলাদেশ সময় (Asia/Dhaka) অনুযায়ী তারিখ + বার + সময় বাংলায় ফরম্যাট করা হয়
+// এটা ব্যবহারকারীর ফোনের টাইমজোন যাই হোক না কেন, সবসময় বাংলাদেশ সময় দেখাবে
+function formatDhakaDate(date) {
+  const dayNames = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+  const monthNames = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+  const enDigits = '0123456789', bnDigits = '০১২৩৪৫৬৭৮৯';
+  const toBn = (n) => String(n).split('').map(d => bnDigits[enDigits.indexOf(d)] ?? d).join('');
+
+  const dhakaParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dhaka',
+    weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', hour12: true
+  }).formatToParts(date);
+
+  const get = (type) => dhakaParts.find(p => p.type === type)?.value;
+  const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(get('weekday'));
+  const day = toBn(get('day'));
+  const month = monthNames[parseInt(get('month'), 10) - 1];
+  const year = toBn(get('year'));
+  const hour = toBn(get('hour'));
+  const minute = toBn(get('minute').padStart(2, '0'));
+  const ampm = get('dayPeriod') === 'AM' ? 'সকাল' : (parseInt(get('hour'), 10) < 5 ? 'রাত' : 'বিকাল/সন্ধ্যা');
+
+  return `${dayNames[dayIndex]}, ${day} ${month} ${year}, ${ampm} ${hour}:${minute}`;
+}
+
 // ---------- Toast ----------
 function toast(msg) {
   const t = $('toast');
@@ -244,13 +270,14 @@ $('editorSaveBtn').addEventListener('click', async () => {
     return;
   }
 
+  const isNewPost = !$('editId').value;
   const id = $('editId').value || slugify(title);
+
   const data = {
     title,
     slug: id,
     category: $('fCategory').value,
     author: $('fAuthor').value.trim() || 'নিজস্ব প্রতিবেদক',
-    publishDate: new Date().toLocaleDateString('bn-BD', { day: '2-digit', month: 'long', year: 'numeric' }),
     imageUrl,
     imageCaption: $('fImageCaption').value.trim(),
     shortDescription,
@@ -262,9 +289,15 @@ $('editorSaveBtn').addEventListener('click', async () => {
     seoTitle: title,
     seoDescription: shortDescription,
     ogImageUrl: imageUrl,
-    viewsCount: 0,
-    createdAt: serverTimestamp()
+    viewsCount: 0
   };
+
+  // নতুন নিউজ হলেই শুধু প্রকাশের তারিখ/সময় বসবে (বাংলাদেশ সময় অনুযায়ী, বার-সহ)
+  // এডিট করলে আগের প্রকাশের তারিখ অপরিবর্তিত থাকবে — যাতে পুরনো নিউজ তালিকার উপরে উঠে না যায়
+  if (isNewPost) {
+    data.publishDate = formatDhakaDate(new Date());
+    data.createdAt = serverTimestamp();
+  }
 
   try {
     await setDoc(doc(db, 'news', id), data, { merge: true });
